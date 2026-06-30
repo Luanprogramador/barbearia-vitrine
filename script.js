@@ -267,7 +267,7 @@ function abrirModalAgendamento() {
 document.querySelectorAll('.openModalBtn').forEach(btn => {
     btn.addEventListener('click', () => {
         ctx.profissional = btn.dataset.pro || 'Profissional'; // guardamos o nome exibido
-        ctx.wa = btn.dataset.wa || '5581999999999';
+        ctx.wa = btn.dataset.wa || '5511978217740';
         // SEM usar coleções separadas; o painel lê "agendamentos"
         ctx.colecao = 'agendamentos';
         salvarContextoSessao();
@@ -282,9 +282,6 @@ import {
     doc, getDoc, setDoc, serverTimestamp,
     collection, query, where, getDocs
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import {
-    getAuth, signInAnonymously, onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyDgaoVZK-5TF5xDFulLISridU9IXbmEYgg",
@@ -297,15 +294,6 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-
-// 🔐 Login anônimo para cumprir as regras (request.auth != null)
-const auth = getAuth(app);
-signInAnonymously(auth).catch((e) => {
-    console.error("Anon auth error:", e);
-});
-onAuthStateChanged(auth, (user) => {
-    console.log("Auth user:", user ? user.uid : null);
-});
 
 const confirmarBtn = document.getElementById('confirmarBtn');
 const toKey = (ymd, hhmm, profSlug) => `ag_${ymd}_${hhmm}_${profSlug}`;
@@ -494,7 +482,7 @@ Agendamento Confirmado com ${ctx.profissional} para o dia ${dataBR} às ${hhmm}.
 ${servicoTxt}${produtosTxt}
 ${raclubTxt}`;
 
-        const url = `https://wa.me/${ctx.wa}?text=${encodeURIComponent(mensagem)}`;
+        const url = `https://api.whatsapp.com/send?phone=${ctx.wa}&text=${encodeURIComponent(mensagem)}`;
         window.open(url, "_blank");
 
         const reviewBtn = document.getElementById('btnAvaliarGoogle');
