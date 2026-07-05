@@ -99,6 +99,11 @@ const SERVICOS = [
 
 const toBRL = (n) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+// helper: gera um slug seguro para identificar o profissional em chaves/coleções
+const profSlugFromCtx = () => {
+    const p = (ctx?.profissional || 'barbeiro').toString();
+    return p.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+};
 // ===== Helpers de modal =====
 function abrirModal(id) { document.getElementById(id).style.display = 'flex'; }
 function fecharModal(id) { document.getElementById(id).style.display = 'none'; }
@@ -303,24 +308,32 @@ const normalizeHora = (h) => (h || "").padStart(5, "0");
 const diaProfKey = (ymd, prof) => `${ymd}#${prof}`;
 
 // === Listar ocupados SEM índice composto (1 where) ===
-async function getReservasByDate(ymd) {
-    const q = query(
-        collection(db, 'agendamentos'),
-        where("diaProf", "==", diaProfKey(ymd, "barbeiro"))
-    );
-    const snap = await getDocs(q);
-    const horasOcupadas = new Set();
-    snap.forEach(d => {
-        const row = d.data();
-        if (row?.hora) horasOcupadas.add(row.hora);
-    });
-    return horasOcupadas;
+async function getReservasByDate(ymd, prof = null) {
+    const profSlug = prof || profSlugFromCtx();
+    try {
+        const q = query(
+            collection(db, 'agendamentos'),
+            where("diaProf", "==", diaProfKey(ymd, profSlug))
+        );
+        const snap = await getDocs(q);
+        const horasOcupadas = new Set();
+        snap.forEach(d => {
+            const row = d.data();
+            if (row?.hora) horasOcupadas.add(row.hora);
+        });
+        return horasOcupadas;
+    } catch (err) {
+        console.error('[getReservasByDate] erro ao consultar Firestore:', err && err.message ? err.message : err, err);
+        return new Set();
+    }
 }
 async function carregarIndisponiveis() {
     if (!dataInput?.value) return;
     resetSelectVisual();
     try {
-        const horas = await getReservasByDate(dataInput.value);
+        const profSlug = profSlugFromCtx();
+        console.debug('[carregarIndisponiveis] consultando data=', dataInput.value, 'prof=', profSlug);
+        const horas = await getReservasByDate(dataInput.value, profSlug);
         for (const opt of horaSelect.options) {
             if (!opt.value) continue;
             const ocupado = horas.has(opt.value);
@@ -329,8 +342,8 @@ async function carregarIndisponiveis() {
             if (ocupado && horaSelect.value === opt.value) horaSelect.value = '';
         }
     } catch (e) {
-        console.error("Erro ao carregar horários:", e);
-        alert("Não foi possível consultar os horários agora.");
+        console.error("Erro ao carregar horários:", e && e.message ? e.message : e, e);
+        alert("Não foi possível consultar os horários agora. Veja o console para detalhes.");
     }
 }
 dataInput?.addEventListener('change', carregarIndisponiveis);
@@ -418,8 +431,8 @@ confirmarBtn?.addEventListener('click', async () => {
     try {
         const hhmm = normalizeHora(hora);
 
-        // ⚠️ Doc id único em "agendamentos"
-        const profSlug = "barbeiro";
+        // ⚠️ Doc id único em "agendamentos" (usa profissional selecionado)
+        const profSlug = profSlugFromCtx();
         const ref = doc(db, 'agendamentos', toKey(data, hhmm, profSlug));
 
         // evita overbooking
@@ -436,8 +449,8 @@ confirmarBtn?.addEventListener('click', async () => {
         await setDoc(ref, {
             dataISO: data,
             hora: hhmm,
-            profissional: "barbeiro",
-            diaProf: diaProfKey(data, "barbeiro"),
+            profissional: profSlug,
+            diaProf: diaProfKey(data, profSlug),
             barbeiroNome: ctx.profissional,
             clienteNome: agendamentoContexto.nomeCliente || null,
             cliente: agendamentoContexto.nomeCliente || null,
